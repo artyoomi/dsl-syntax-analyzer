@@ -1,6 +1,13 @@
 ## Description
 Simple DSL parser.
 
+## Build
+```sh
+clang++ -std=c++20 main.cpp
+```
+### Dependencies
+- `Boost.Parser==1.90.0`
+
 ## Grammar
 ```
 S ::=
