@@ -18,13 +18,6 @@ struct Node;
 
 using NodePtr = std::shared_ptr<Node>;
 
-// Factory function that forwards arguments to the appropriate constructor
-template<typename... Args>
-NodePtr makeNodePtr(Args&&... args)
-{
-    return std::make_shared<Node>(std::forward<Args>(args)...);
-}
-
 enum class NodeType {
     // Request types
     GET_REQUEST,
@@ -34,6 +27,8 @@ enum class NodeType {
 
     // Conditions
     CONDITION,
+    AND,
+    OR,
     EQUAL,
     NEQUAL,
 
@@ -44,6 +39,13 @@ enum class NodeType {
     // Leaves with identifiers and values
     TOKEN
 };
+
+// Factory function that forwards arguments to the appropriate constructor
+template<typename... Args>
+NodePtr makeNodePtr(Args&&... args)
+{
+    return std::make_shared<Node>(std::forward<Args>(args)...);
+}
 
 struct Node {
     unsigned                   id;
@@ -75,38 +77,6 @@ struct Node {
     // friend std::ostream& operator<<(std::ostream& os, const NodePtr& obj);
 };
 
-template<
-    typename Preprocess,
-    typename ProcessNode,
-    typename OnChildEnqueue,
-    typename Postprocess>
-static void nodeTraverse(
-    const NodePtr& root,
-    Preprocess preprocess,
-    ProcessNode processNode,
-    OnChildEnqueue onChildEnqueue,
-    Postprocess postprocess)
-{
-    std::queue<NodePtr> q;
-    q.push(root);
-
-    preprocess(root);
-
-    while (!q.empty()) {
-        NodePtr node = q.front();
-        q.pop();
-
-        processNode(node);
-
-        for (auto const& child : node->children) {
-            onChildEnqueue(node, child);
-            q.push(child);
-        }
-    }
-
-    postprocess(root);
-}
-
 // <TODO>: need to be rewritten with nodeTraverse function
 // static void nodeToString(const NodePtr& root, std::ostream& out, int indentLevel = 0) {
 //     static std::string indentSymbol = "  ";
@@ -129,60 +99,18 @@ static void nodeTraverse(
 //     return os;
 // }
 
-/** Format of resulting .dot file
- * digraph AST {
- *   node0 [label="EQUAL"];
- *   node1 [label="TOKEN: typing"];
- *   node2 [label="TOKEN: abc"];
- *
- *   node0 -> node1;
- *   node0 -> node2;
- * }
- */
-static void toGraphviz(std::ostream& out, NodePtr root)
-{
-    const std::string graphName = "AST";
+/** Format of resulting .dot file is as follows
+    ```
+    digraph AST {
+        node0 [label="EQUAL"];
+        node1 [label="TOKEN: typing"];
+        node2 [label="TOKEN: abc"];
 
-    nodeTraverse(
-        root,
-
-        [&](auto) {
-            out << std::format("digraph {} {{\n", graphName);
-        },
-
-        [&](const NodePtr& node) {
-            // Create graph node
-            out << std::format("\tnode{} [label=\"{}", node->id, magic_enum::enum_name(node->type));
-            if (node->token) {
-                out << std::format(": {}", *node->token);
-            }
-            out << "\"];\n";
-        },
-
-        [&](const NodePtr& parent, const NodePtr& child) {
-            out << std::format("\tnode{} -> node{};\n", parent->id, child->id);
-        },
-
-        [&](auto) {
-            out << "}\n";
-        }
-    );
-}
-
-void dumpToGraphviz(const std::string& filename, NodePtr node)
-{
-    std::ofstream file;
-
-    try {
-        file.open(filename);
-        toGraphviz(file, node);
-    } catch (const std::ifstream::failure& e) {
-        throw std::runtime_error("Failed to open file " + filename + ": " + e.what());
-    } catch (const std::exception /* ex */) {
-        throw std::runtime_error("Unhandled exception");
+        node0 -> node1;
+        node0 -> node2;
     }
-
-    file.close();
-}
+    ```
+ */
+void dumpToGraphviz(const std::string& filename, const NodePtr& node);
 
 }  // namespace ast
